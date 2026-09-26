@@ -351,7 +351,8 @@ function ouvrirArchives() {
     vue.min = d.jours[d.jours.length - 1]; vue.max = d.jours[0];
     ['du', 'au'].forEach(function (id) { var e = document.getElementById(id); e.min = vue.min; e.max = vue.max; });
     var auj = aujourdhui(), dernier = d.jours.filter(function (j) { return j <= auj; })[0] || vue.max;
-    fixerPlage(dernier, dernier);
+    fixerPlage(vue.min, dernier); // par défaut : tout l'historique
+    document.querySelectorAll('#raccourcis button').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.v === 'tout'); });
   }).catch(function () { message(vue.sous, "Impossible de lire l'historique pour le moment."); });
 }
 
@@ -377,7 +378,7 @@ function parJour(vols) { // regroupe par date, dans l'ordre
     if (!index[v.date]) { index[v.date] = { date: v.date, vols: [] }; jours.push(index[v.date]); }
     index[v.date].vols.push(v);
   });
-  return jours;
+  return jours.reverse(); // le jour le plus récent en premier
 }
 
 /* --- Historique : vols réels, toutes les colonnes de la feuille --- */
@@ -468,6 +469,8 @@ function ligneCompar(v, seuil) {
     det.push(h('span', { class: 'ecart' + (v.ecart >= seuil ? ' retard' : ''), text: v.ecart === 0 ? "À l'heure" : signe(v.ecart) + ' min' }));
   } else if (v.resultat === 'non_observe') {
     det.push(h('span', { class: 'ecart non', text: 'Pas vu par le radar' }));
+  } else if (v.resultat === 'sans_prevu') {
+    det.push(h('span', { class: 'etat', text: "Pas d'horaire prévu enregistré" }));
   } else {
     det.push(h('span', { class: 'ecart retard', text: 'Vol non prévu' }));
   }
@@ -486,9 +489,11 @@ function comparAfficher(vols, p) {
   z.appendChild(h('div', { class: 'note', text: "Écart = heure réelle vue par le radar moins heure prévue. Un vol « pas vu » peut être annulé, ou simplement absent des données. Pour un départ, le radar voit le décollage, quelques minutes après l'heure prévue de départ : les départs paraissent donc un peu en retard." }));
   var c = document.getElementById('comparContenu');
   c.textContent = '';
-  document.getElementById('comparInfo').textContent = '';
+  var vus = vols.filter(function (v) { return v.resultat !== 'non_observe'; });
+  var dep = vus.filter(function (v) { return v.sens === 'DEP'; }).length;
+  var compares = vus.filter(function (v) { return v.resultat === 'observe'; }).length;
+  document.getElementById('comparInfo').textContent = 'Du ' + francais(p.du) + ' au ' + francais(p.au) + ' : ' + vus.length + ' vols vus par le radar (' + dep + ' départs, ' + (vus.length - dep) + ' arrivées), dont ' + compares + ' comparés à un horaire prévu.';
   parJour(vols).forEach(function (j) {
-    if (!j.vols.some(function (v) { return v.prevu; })) return; // pas d'horaires prévus ce jour-là : rien à comparer
     var ulD = h('ul', { class: 'vols' }), ulA = h('ul', { class: 'vols' });
     j.vols.forEach(function (v) { (v.sens === 'DEP' ? ulD : ulA).appendChild(ligneCompar(v, seuil)); });
     c.appendChild(h('div', { class: 'jourbloc' }, [
