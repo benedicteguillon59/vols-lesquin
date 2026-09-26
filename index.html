@@ -22,7 +22,7 @@
   --alerte: #8a4b00; --alerte-fond: #fff0d1;
   --mal: #a3122a; --mal-fond: #fde3e7;
   --archive: #7a2d6b; --archive-clair: #f6e3f2;
-  --sur-accent: #ffffff; --nuit: #0a3d5f; --soleil: #ffd45c;
+  --sur-accent: #ffffff; --nuit: #0a3d5f; --soleil: #ffd45c; --arr: #7a2d6b; --dep: #c8790f;
   --panneau: #0a2a43; --panneau-texte: #ffd45c; --panneau-ligne: rgba(0,0,0,.55);
   --titre: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
 }
@@ -34,7 +34,7 @@
     --alerte: #ffc766; --alerte-fond: #4a3510;
     --mal: #ff9aab; --mal-fond: #4d1a25;
     --archive: #f0a6e0; --archive-clair: #43203d;
-    --sur-accent: #0e1a24; --nuit: #0a2233; --panneau: #050f17; --panneau-texte: #ffd45c;
+    --sur-accent: #0e1a24; --nuit: #0a2233; --arr: #f0a6e0; --dep: #f2a93b; --panneau: #050f17; --panneau-texte: #ffd45c;
   }
 }
 * { box-sizing: border-box; }
@@ -127,6 +127,29 @@ input[type=date] { min-height: 48px; font: inherit; padding: 8px 12px; border: 2
 .jourbloc { margin-top: 18px; }
 .jourbloc > h2.date { display: inline-block; background: var(--archive-clair); color: var(--archive); padding: 4px 14px; border-radius: 999px; font-size: 1.05rem; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--soleil); outline-offset: 2px; box-shadow: 0 0 0 5px var(--bleu); }
+.tableau { overflow-x: auto; margin: 8px 0 18px; border: 1px solid var(--ligne); border-radius: 12px; background: var(--carte); }
+.tableau table { border-collapse: collapse; width: 100%; font-size: 1rem; }
+.tableau caption { text-align: left; font-family: var(--titre); font-weight: 600; font-size: 1.1rem; color: var(--archive); padding: 10px 12px; }
+.tableau th, .tableau td { padding: 8px 10px; text-align: right; white-space: nowrap; border-top: 1px solid var(--ligne); font-variant-numeric: tabular-nums; }
+.tableau thead th { color: var(--doux); font-weight: 700; }
+.tableau thead th:first-child, .tableau tbody th { text-align: left; font-weight: 700; }
+.tableau tr.total th, .tableau tr.total td { background: var(--archive-clair); font-weight: 700; }
+.tableau tbody th, .tableau thead th:first-child { position: sticky; left: 0; background: var(--carte); }
+.tableau tr.total th { background: var(--archive-clair); }
+.barres { display: flex; width: 150px; height: 14px; border-radius: 4px; overflow: hidden; background: var(--ligne); }
+.barres i, .legende i { display: block; height: 100%; }
+i.arr { background: var(--arr); } i.dep { background: var(--dep); } i.cie { background: var(--archive); }
+.legende { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 6px 2px; }
+.legende span { display: inline-flex; align-items: center; gap: 6px; }
+.legende i { width: 18px; height: 18px; border-radius: 4px; }
+.colonnes { display: flex; align-items: flex-end; gap: 6px; margin: 8px 0 14px; padding: 12px 6px 0; min-height: 250px;
+  background: var(--carte); border: 1px solid var(--ligne); border-radius: 12px; }
+.colonne { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.colonne b { font-family: var(--titre); font-size: 1.05rem; }
+.pile { display: flex; flex-direction: column; width: 70%; max-width: 56px; border-radius: 6px 6px 0 0; overflow: hidden; }
+.pile i { display: block; }
+.colonne .mois { font-size: 1rem; color: var(--doux); padding: 4px 0 8px; }
+.sous-titre { margin: 16px 2px 0; font-size: 1.15rem; color: var(--archive); }
 footer { color: var(--doux); font-size: 1rem; margin-top: 24px; }
 footer a { color: var(--bleu); }
 </style>
@@ -149,11 +172,12 @@ footer a { color: var(--bleu); }
 
   <section id="archives" class="pave pave-archives" hidden aria-label="Historique et comparaison">
     <h2>Ce qui s'est vraiment passé</h2>
-    <div class="groupe" id="sousVue" role="group" aria-label="Historique ou comparaison">
+    <div class="groupe" id="sousVue" role="group" aria-label="Historique, comparaison ou statistiques mensuelles">
       <button data-v="histo" aria-pressed="true">Historique</button>
       <button data-v="compar" aria-pressed="false">Comparaison</button>
+      <button data-v="stats" aria-pressed="false">Statistiques mensuelles</button>
     </div>
-    <div class="periode">
+    <div class="periode" id="periode">
       <label>Du <input type="date" id="du"></label>
       <label>Au <input type="date" id="au"></label>
     </div>
@@ -192,6 +216,12 @@ footer a { color: var(--bleu); }
       <div id="comparStats"></div>
       <div class="info" id="comparInfo"></div>
       <div id="comparContenu"></div>
+    </div>
+    <div id="stats" hidden>
+      <label class="coche">Période
+        <select id="statsMois" aria-label="Choisir le mois"></select>
+      </label>
+      <div id="statsContenu"></div>
     </div>
   </section>
 
@@ -394,22 +424,24 @@ function fixerPlage(du, au) {
 }
 
 function ouvrirArchives() {
-  if (!HISTORIQUE_URL) return message(vue.sous, "L'historique n'est pas encore branché.");
+  if (vue.sous === 'stats') return statsOuvrir();
+  var sous = vue.sous; // l'onglet peut changer pendant le chargement : les messages vont dans l'onglet d'origine
+  if (!HISTORIQUE_URL) return message(sous, "L'historique n'est pas encore branché.");
   if (vue.jours) return actualiser();
-  message(vue.sous, ATTENTE);
+  message(sous, ATTENTE);
   appel('').then(function (d) {
     vue.jours = d.jours;
-    if (!d.jours.length) return message(vue.sous, "Pas encore de données : l'historique se remplit chaque jour.");
+    if (!d.jours.length) return message(sous, "Pas encore de données : l'historique se remplit chaque jour.");
     vue.min = d.jours[d.jours.length - 1]; vue.max = d.jours[0];
     ['du', 'au'].forEach(function (id) { var e = document.getElementById(id); e.min = vue.min; e.max = vue.max; });
     var auj = aujourdhui(), dernier = d.jours.filter(function (j) { return j <= auj; })[0] || vue.max;
     fixerPlage(vue.min, dernier); // par défaut : tout l'historique
     document.querySelectorAll('#raccourcis button').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.v === 'tout'); });
-  }).catch(function () { message(vue.sous, "Impossible de lire l'historique pour le moment."); });
+  }).catch(function () { message(sous, "Impossible de lire l'historique pour le moment."); });
 }
 
 function actualiser() {
-  if (!vue.jours) return;
+  if (!vue.jours || vue.sous === 'stats') return;
   var p = plage();
   if (!p.du || !p.au) return message(vue.sous, 'Choisissez une date de début et une date de fin.');
   if (ecartJours(p.du, p.au) + 1 > MAX_JOURS) return message(vue.sous, 'Choisissez une période de ' + MAX_JOURS + ' jours au plus.');
@@ -590,6 +622,106 @@ document.getElementById('histoPiste').addEventListener('change', function () {
   if (vue.histoVols) histoAfficher(vue.histoVols, vue.histoP);
 });
 
+/* --- Statistiques mensuelles : feuille « Recap 2026 » (vols de nuit, de 22 h à 6 h) --- */
+var MOIS_COURT = { 'Juillet': 'Juil.', 'Septembre': 'Sept.', 'Octobre': 'Oct.', 'Novembre': 'Nov.', 'Décembre': 'Déc.' };
+function moisCourt(nom) { var m = nom.split(' (')[0]; return MOIS_COURT[m] || m; }
+function moisLong(nom) { return nom.replace(/\s*\((\d+)\s*->\)/, ' (depuis le $1)'); }
+function addition(a) { return a.reduce(function (s, x) { return s + x; }, 0); }
+function tranche(t) { return String(t).replace(/(\d+)-(\d+)h/, '$1 h – $2 h'); }
+function pourcent(n, d) { return d ? (Math.round(1000 * n / d) / 10 + ' %').replace('.', ',') : '—'; }
+
+function statsOuvrir() {
+  if (!HISTORIQUE_URL) return message('stats', "L'historique n'est pas encore branché.");
+  if (vue.recap) return statsAfficher();
+  message('stats', ATTENTE);
+  appel('vue=recap').then(function (d) {
+    if (d.erreur) throw new Error(d.erreur);
+    vue.recap = d;
+    vue.recapMois = d.mois.filter(function (m) { return m.ARR.o + m.DEP.o > 0; });
+    var sel = document.getElementById('statsMois');
+    sel.textContent = '';
+    sel.appendChild(h('option', { value: '', text: 'Tous les mois' }));
+    vue.recapMois.forEach(function (m, i) { sel.appendChild(h('option', { value: String(i), text: moisLong(m.nom) })); });
+    statsAfficher();
+  }).catch(function () { message('stats', "Impossible de lire les statistiques pour le moment. La feuille « Recap 2026 » existe-t-elle ? (lancer creerRecap)"); });
+}
+
+function tableau(titre, entetes, lignes, avecTotal) {
+  var tete = h('thead', {}, [h('tr', {}, entetes.map(function (t) { return h('th', { scope: 'col', text: t }); }))]);
+  var corps = h('tbody', {}, lignes.map(function (l, i) {
+    return h('tr', avecTotal && i === lignes.length - 1 ? { 'class': 'total' } : {}, l.map(function (c, j) {
+      if (c && c.nodeType) return h('td', {}, [c]);
+      return j === 0 ? h('th', { scope: 'row', text: String(c) }) : h('td', { text: String(c) });
+    }));
+  }));
+  return h('div', { 'class': 'tableau' }, [h('table', {}, [h('caption', { text: titre }), tete, corps])]);
+}
+function barre(parts, max) { // petite barre : une part par couleur, sur la même échelle
+  return h('span', { 'class': 'barres', 'aria-hidden': 'true' }, parts.map(function (p) {
+    return h('i', { 'class': p[1], style: 'width:' + (max ? 100 * p[0] / max : 0) + '%' });
+  }));
+}
+function legende(items) {
+  return h('div', { 'class': 'legende' }, items.map(function (x) { return h('span', {}, [h('i', { 'class': x[0] }), h('span', { text: x[1] })]); }));
+}
+function colonnes(mois) { // vols de nuit par mois : arrivées et départs empilés
+  var max = Math.max.apply(null, mois.map(function (m) { return m.ARR.o + m.DEP.o; })) || 1;
+  var zone = h('div', { 'class': 'colonnes', role: 'img', 'aria-label': 'Vols de nuit par mois : ' + mois.map(function (m) {
+    return moisLong(m.nom) + ' ' + (m.ARR.o + m.DEP.o) + ' vols';
+  }).join(', ') + '. Le détail est dans le tableau ci-dessous.' });
+  mois.forEach(function (m) {
+    zone.appendChild(h('div', { 'class': 'colonne' }, [
+      h('b', { text: String(m.ARR.o + m.DEP.o) }),
+      h('span', { 'class': 'pile', style: 'height:' + Math.round(170 * (m.ARR.o + m.DEP.o) / max) + 'px' }, [
+        h('i', { 'class': 'dep', style: 'flex:' + m.DEP.o }), h('i', { 'class': 'arr', style: 'flex:' + m.ARR.o })]),
+      h('span', { 'class': 'mois', text: moisCourt(m.nom) })
+    ]));
+  });
+  return zone;
+}
+
+function statsAfficher() {
+  var d = vue.recap, mois = vue.recapMois, c = document.getElementById('statsContenu');
+  c.textContent = '';
+  if (!mois.length) return message('stats', "Pas encore de chiffres dans la feuille « Recap 2026 ».");
+  var choix = document.getElementById('statsMois').value;
+  var sel = choix === '' ? d.total : mois[+choix];
+  var nomPeriode = choix === '' ? 'tous les mois' : moisLong(mois[+choix].nom);
+  var ta = sel.ARR.o, td = sel.DEP.o, nuit = sel.ARR.n + sel.DEP.n;
+  c.appendChild(h('div', { 'class': 'stats' }, [
+    h('div', { 'class': 'stat hero' }, [h('b', { text: String(ta + td) }), h('span', { text: 'vols de nuit (entre 22 h et 6 h), ' + nomPeriode })]),
+    carte(ta, 'arrivées'), carte(td, 'départs'),
+    carte(nuit, 'vols entre minuit et 6 h'), carte(pourcent(nuit, ta + td), 'des vols de nuit ont lieu entre minuit et 6 h')
+  ]));
+
+  c.appendChild(h('h3', { 'class': 'sous-titre', text: 'Vols de nuit, mois par mois' }));
+  c.appendChild(legende([['arr', 'Arrivées'], ['dep', 'Départs']]));
+  c.appendChild(colonnes(mois));
+  var lm = mois.map(function (m) {
+    return [moisLong(m.nom), m.ARR.o, m.DEP.o, m.ARR.o + m.DEP.o, m.ARR.m + m.DEP.m, m.ARR.n + m.DEP.n];
+  });
+  lm.push(['Total', d.total.ARR.o, d.total.DEP.o, d.total.ARR.o + d.total.DEP.o, d.total.ARR.m + d.total.DEP.m, d.total.ARR.n + d.total.DEP.n]);
+  c.appendChild(tableau('Par mois', ['Mois', 'Arrivées', 'Départs', 'Total', '22 h – 24 h', '0 h – 6 h'], lm, true));
+
+  c.appendChild(h('h3', { 'class': 'sous-titre', text: 'À quelle heure : ' + nomPeriode }));
+  var ph = d.heures.map(function (t, i) { return [tranche(t), sel.ARR.h[i], sel.DEP.h[i]]; });
+  var maxH = Math.max.apply(null, ph.map(function (l) { return l[1] + l[2]; })) || 1;
+  c.appendChild(legende([['arr', 'Arrivées'], ['dep', 'Départs']]));
+  c.appendChild(tableau('Par tranche horaire', ['Tranche', 'Arrivées', 'Départs', 'Total', ''],
+    ph.map(function (l) { return [l[0], l[1], l[2], l[1] + l[2], barre([[l[1], 'arr'], [l[2], 'dep']], maxH)]; })));
+
+  c.appendChild(h('h3', { 'class': 'sous-titre', text: 'Quelles compagnies, de 0 h à 6 h : ' + nomPeriode }));
+  var pc = d.compagnies.map(function (nom, i) { return { nom: nom, a: sel.ARR.c[i], d: sel.DEP.c[i] }; });
+  var autres = pc.filter(function (x) { return x.nom === 'Autres'; });
+  pc = pc.filter(function (x) { return x.nom !== 'Autres'; }).sort(function (x, y) { return (y.a + y.d) - (x.a + x.d); }).concat(autres);
+  var totalC = addition(pc.map(function (x) { return x.a + x.d; }));
+  var maxC = Math.max.apply(null, pc.map(function (x) { return x.a + x.d; })) || 1;
+  c.appendChild(tableau('Par compagnie', ['Compagnie', 'Arrivées', 'Départs', 'Total', 'Part', ''],
+    pc.map(function (x) { return [x.nom, x.a, x.d, x.a + x.d, pourcent(x.a + x.d, totalC), barre([[x.a, 'arr'], [x.d, 'dep']], maxC)]; })));
+
+  c.appendChild(h('div', { 'class': 'note', text: "Chiffres de la feuille « Recap 2026 » : juin à août relevés à la main, à partir de septembre calculés automatiquement d'après le radar (heure de Paris). Une arrivée compte à l'atterrissage, un départ au décollage. Les compagnies sont regroupées d'après l'indicatif radar ; « Autres » réunit celles qui ne sont pas listées." }));
+}
+
 function basculeSimple(id, action) {
   document.getElementById(id).addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
@@ -606,8 +738,12 @@ basculeSimple('sousVue', function (v) {
   vue.sous = v;
   document.getElementById('histo').hidden = v !== 'histo';
   document.getElementById('compar').hidden = v !== 'compar';
+  document.getElementById('stats').hidden = v !== 'stats';
+  document.getElementById('periode').hidden = v === 'stats'; // les statistiques mensuelles n'utilisent pas les dates
+  document.getElementById('raccourcis').hidden = v === 'stats';
   ouvrirArchives();
 });
+document.getElementById('statsMois').addEventListener('change', function () { if (vue.recap) statsAfficher(); });
 basculeSimple('raccourcis', function (v) {
   if (!vue.jours) return;
   var auj = aujourdhui(), fin = auj > vue.max ? vue.max : auj;
