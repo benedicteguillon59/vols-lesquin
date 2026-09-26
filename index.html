@@ -426,6 +426,11 @@ function histoChoisir(p) {
     .then(function (vols) { if (vue.sous === 'histo') histoAfficher(vols, p); })
     .catch(function () { message('histo', 'Impossible de lire cette période.'); });
 }
+function textePiste(p) { // « 26 » ; « 20? » = incertaine ; « - » = pas déterminée ; vide = pas encore calculée
+  if (!p) return '';
+  if (p === '-') return 'Piste non déterminée';
+  return 'Piste ' + p.replace('?', '') + (p.slice(-1) === '?' ? ' (incertaine)' : '');
+}
 function ligneReel(v) {
   return h('li', { class: 'vol' }, [
     h('div', { class: 'heure', text: v.heure }),
@@ -433,9 +438,8 @@ function ligneReel(v) {
     h('div', { class: 'detail' }, [
       h('span', { text: nomCompagnie(v) + (v.compagnie ? ' · code ' + v.compagnie + (v.compagnie_iata ? '/' + v.compagnie_iata : '') : '') }),
       h('span', { text: 'Indicatif ' + (v.indicatif || '—') }),
-      h('span', { text: 'Avion ' + (v.avion || '—') }),
-      h('span', { class: 'ref', text: 'Réf. ' + v.id })
-    ])
+      h('span', { text: 'Avion ' + (v.avion || '—') })
+    ].concat(v.piste ? [h('span', { text: textePiste(v.piste) })] : [], [h('span', { class: 'ref', text: 'Réf. ' + v.id })]))
   ]);
 }
 function histoAfficher(vols, p) {
@@ -520,6 +524,7 @@ function ligneCompar(v, seuil) {
     det.push(h('span', { class: 'ecart retard', text: 'Vol non prévu' }));
   }
   if (v.prevu) det.push(h('span', { text: 'Prévu à ' + v.prevu }));
+  if (v.piste) det.push(h('span', { text: textePiste(v.piste) }));
   return h('li', { class: 'vol' }, [
     h('div', { class: 'heure' + (v.reel ? '' : ' inconnue'), text: v.reel || v.prevu }),
     h('div', { class: 'ville', text: (v.sens === 'DEP' ? 'Vers ' : 'De ') + (AEROPORTS[v.ville] || v.ville || '—').toLowerCase() }),
