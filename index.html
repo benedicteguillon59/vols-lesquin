@@ -272,8 +272,8 @@ function charger() {
       }
       afficher();
     })
-    .catch(function () {
-      etat.erreur = true; afficher();
+    .catch(function (e) {
+      etat.erreur = true; etat.raison = String(e && e.message || e); afficher();
     });
 }
 
@@ -293,7 +293,8 @@ function afficher() {
     var b = h('button', { text: 'Réessayer', type: 'button' }); b.onclick = charger;
     c.appendChild(h('div', { class: 'erreur' }, [
       h('strong', { text: 'Impossible de lire les horaires pour le moment.' }),
-      h('div', { text: 'Vérifiez votre connexion, ou consultez directement le site de l\'aéroport.' }), b]));
+      h('div', { text: 'Vérifiez votre connexion, ou consultez directement le site de l\'aéroport.' }),
+      h('div', { class: 'ref', text: 'Détail : ' + (etat.raison || 'inconnu') }), b]));
     return;
   }
   maj.textContent = (etat.erreur ? 'Connexion perdue, affichage des dernières données. ' : '') +
