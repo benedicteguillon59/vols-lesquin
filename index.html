@@ -438,20 +438,23 @@ function signe(n) { return (n > 0 ? '+' : '') + n; }
 function carte(valeur, libelle, classe) {
   return h('div', { class: 'stat' + (classe ? ' ' + classe : '') }, [h('b', { text: valeur }), h('span', { text: libelle })]);
 }
-function blocStats(sens, p, seuil) {
+function blocStats(sens, p, seuil, vols) {
   var b = { prevus: 0, observes: 0, nonObserves: 0, nonPrevus: 0, ecarts: [] };
   vue.stats.filter(function (d) { return d.date >= p.du && d.date <= p.au; }).forEach(function (d) {
     var x = d[sens];
     b.prevus += x.prevus; b.observes += x.observes; b.nonObserves += x.nonObserves; b.nonPrevus += x.nonPrevus;
     b.ecarts = b.ecarts.concat(x.ecarts);
   });
-  if (!b.prevus) return h('div', { class: 'vide', text: "Pas d'horaires prévus enregistrés sur cette période : la comparaison commence le 26/09/2026." });
+  var vusTotal = vols.filter(function (v) { return v.sens === sens && v.resultat !== 'non_observe'; }).length;
+  if (!b.prevus) return h('div', { class: 'stats' }, [carte(vusTotal, 'vols vus par le radar sur la période'),
+    h('div', { class: 'vide', text: "Pas d'horaires prévus enregistrés sur cette période : la comparaison commence le 26/09/2026." })]);
   var retards = b.ecarts.filter(function (e) { return e >= seuil; }).length;
   var avance = b.ecarts.filter(function (e) { return e <= -seuil; }).length;
   var pc = function (n, d) { return d ? Math.round(1000 * n / d) / 10 + ' %' : '—'; };
   var moy = b.ecarts.length ? Math.round(b.ecarts.reduce(function (s, e) { return s + e; }, 0) / b.ecarts.length * 10) / 10 : null;
   return h('div', { class: 'stats' }, [
-    carte(b.prevus, 'vols prévus'),
+    carte(vusTotal, 'vols vus par le radar sur toute la période'),
+    carte(b.prevus, 'vols prévus, dans les jours où les horaires sont enregistrés'),
     carte(b.observes, 'vus par le radar (' + pc(b.observes, b.prevus) + ')'),
     carte(retards, 'en retard de ' + seuil + ' min ou plus', retards ? 'alerte' : 'ok'),
     carte(pc(retards, b.observes), 'de retards parmi les vols vus', retards ? 'alerte' : 'ok'),
@@ -485,7 +488,7 @@ function comparAfficher(vols, p) {
   var seuil = +document.getElementById('comparSeuil').value;
   var z = document.getElementById('comparStats');
   z.textContent = '';
-  z.appendChild(deuxColonnes(colonne('Départs', blocStats('DEP', p, seuil)), colonne('Arrivées', blocStats('ARR', p, seuil))));
+  z.appendChild(deuxColonnes(colonne('Départs', blocStats('DEP', p, seuil, vols)), colonne('Arrivées', blocStats('ARR', p, seuil, vols))));
   z.appendChild(h('div', { class: 'note', text: "Écart = heure réelle vue par le radar moins heure prévue. Un vol « pas vu » peut être annulé, ou simplement absent des données. Pour un départ, le radar voit le décollage, quelques minutes après l'heure prévue de départ : les départs paraissent donc un peu en retard." }));
   var c = document.getElementById('comparContenu');
   c.textContent = '';
