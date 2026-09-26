@@ -164,6 +164,14 @@ footer a { color: var(--bleu); }
       <button data-v="tout" aria-pressed="false">Tout</button>
     </div>
     <div id="histo">
+      <label class="coche">Piste
+        <select id="histoPiste" aria-label="Filtrer par piste">
+          <option value="">Toutes les pistes</option>
+          <option value="08">08</option><option value="26">26</option>
+          <option value="02">02</option><option value="20">20</option>
+          <option value="?">Non déterminée</option>
+        </select>
+      </label>
       <div class="info" id="histoInfo"></div>
       <div id="histoContenu"></div>
     </div>
@@ -171,6 +179,14 @@ footer a { color: var(--bleu); }
       <label class="coche">Retard à partir de
         <select id="comparSeuil" aria-label="Seuil de retard">
           <option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option>
+        </select>
+      </label>
+      <label class="coche">Piste
+        <select id="comparPiste" aria-label="Filtrer par piste">
+          <option value="">Toutes les pistes</option>
+          <option value="08">08</option><option value="26">26</option>
+          <option value="02">02</option><option value="20">20</option>
+          <option value="?">Non déterminée</option>
         </select>
       </label>
       <div id="comparStats"></div>
@@ -423,7 +439,7 @@ function histoChoisir(p) {
   message('histo', ATTENTE);
   document.getElementById('histoInfo').textContent = '';
   (vue.reel[cle] ? Promise.resolve(vue.reel[cle]) : appel('vue=reel&debut=' + p.du + '&fin=' + p.au).then(function (d) { return vue.reel[cle] = d.vols; }))
-    .then(function (vols) { if (vue.sous === 'histo') histoAfficher(vols, p); })
+    .then(function (vols) { vue.histoVols = vols; vue.histoP = p; if (vue.sous === 'histo') histoAfficher(vols, p); })
     .catch(function () { message('histo', 'Impossible de lire cette période.'); });
 }
 function textePiste(p) { // « 26 » ; « 20? » = incertaine ; « - » = pas déterminée ; vide = pas encore calculée
@@ -439,15 +455,21 @@ function ligneReel(v) {
       h('span', { text: nomCompagnie(v) + (v.compagnie ? ' · code ' + v.compagnie + (v.compagnie_iata ? '/' + v.compagnie_iata : '') : '') }),
       h('span', { text: 'Indicatif ' + (v.indicatif || '—') }),
       h('span', { text: 'Avion ' + (v.avion || '—') })
-    ].concat(v.piste ? [h('span', { text: textePiste(v.piste) })] : [], [h('span', { class: 'ref', text: 'Réf. ' + v.id })]))
+    ].concat(v.piste ? [h('span', { text: textePiste(v.piste) })] : []))
   ]);
 }
-function histoAfficher(vols, p) {
+function pisteDe(v) { // « 26? » compte comme 26 ; « - » ou vide = non déterminée
+  var x = (v.piste || '').replace('?', '');
+  return x && x !== '-' ? x : '?';
+}
+function histoAfficher(tous, p) {
   var c = document.getElementById('histoContenu');
   c.textContent = '';
+  var choix = document.getElementById('histoPiste').value;
+  var vols = choix ? tous.filter(function (v) { return pisteDe(v) === choix; }) : tous;
   var dep = vols.filter(function (v) { return v.sens === 'DEP'; }).length;
-  document.getElementById('histoInfo').textContent = 'Du ' + francais(p.du) + ' au ' + francais(p.au) + ' : ' + dep + ' départs et ' + (vols.length - dep) + ' arrivées vus par le radar.';
-  if (!vols.length) return message('histo', 'Aucun vol sur cette période.');
+  document.getElementById('histoInfo').textContent = 'Du ' + francais(p.du) + ' au ' + francais(p.au) + ' : ' + dep + ' départs et ' + (vols.length - dep) + ' arrivées vus par le radar' + (choix ? (choix === '?' ? ', piste non déterminée' : ', piste ' + choix) : '') + '.';
+  if (!vols.length) return message('histo', choix ? 'Aucun vol sur cette période avec cette piste.' : 'Aucun vol sur cette période.');
   parJour(vols).forEach(function (j) {
     var ulD = h('ul', { class: 'vols' }), ulA = h('ul', { class: 'vols' });
     var nd = 0, na = 0;
@@ -467,7 +489,7 @@ function comparChoisir(p) {
   Promise.all([
     vue.compar[cle] ? Promise.resolve(vue.compar[cle]) : appel('debut=' + p.du + '&fin=' + p.au).then(function (d) { return vue.compar[cle] = d.vols; }),
     vue.stats ? Promise.resolve(vue.stats) : appel('vue=stats').then(function (d) { return vue.stats = d.jours; })
-  ]).then(function (r) { if (vue.sous === 'compar') comparAfficher(r[0], p); })
+  ]).then(function (r) { vue.comparVols = r[0]; vue.comparP = p; if (vue.sous === 'compar') comparAfficher(r[0], p); })
     .catch(function () { message('compar', 'Impossible de lire la comparaison.'); });
 }
 function mediane(a) {
@@ -478,14 +500,22 @@ function signe(n) { return (n > 0 ? '+' : '') + n; }
 function carte(valeur, libelle, classe) {
   return h('div', { class: 'stat' + (classe ? ' ' + classe : '') }, [h('b', { text: valeur }), h('span', { text: libelle })]);
 }
-function blocStats(sens, p, seuil, vols) {
+function blocStats(sens, p, seuil, vols, filtre) {
   var b = { prevus: 0, observes: 0, nonObserves: 0, nonPrevus: 0, ecarts: [] };
-  vue.stats.filter(function (d) { return d.date >= p.du && d.date <= p.au; }).forEach(function (d) {
+  if (filtre) { // le bilan par jour ne connaît pas la piste : on recompte les vols affichés
+    vols.forEach(function (v) {
+      if (v.sens !== sens) return;
+      if (v.resultat === 'observe') { b.prevus++; b.observes++; b.ecarts.push(v.ecart); }
+      else if (v.resultat === 'non_observe') { b.prevus++; b.nonObserves++; }
+      else if (v.resultat === 'non_prevu') b.nonPrevus++;
+    });
+  } else vue.stats.filter(function (d) { return d.date >= p.du && d.date <= p.au; }).forEach(function (d) {
     var x = d[sens];
     b.prevus += x.prevus; b.observes += x.observes; b.nonObserves += x.nonObserves; b.nonPrevus += x.nonPrevus;
     b.ecarts = b.ecarts.concat(x.ecarts);
   });
   var vusTotal = vols.filter(function (v) { return v.sens === sens && v.resultat !== 'non_observe'; }).length;
+  if (!b.prevus && filtre) return h('div', { class: 'vide', text: 'Aucun vol comparé avec cette piste.' });
   if (!b.prevus) return h('div', { class: 'stats' }, [carte(vusTotal, 'vols vus par le radar sur la période'),
     h('div', { class: 'vide', text: "Pas d'horaires prévus enregistrés sur cette période : la comparaison commence le 26/09/2026." })]);
   var retards = b.ecarts.filter(function (e) { return e >= seuil; }).length;
@@ -531,18 +561,21 @@ function ligneCompar(v, seuil) {
     h('div', { class: 'detail' }, det)
   ]);
 }
-function comparAfficher(vols, p) {
+function comparAfficher(tous, p) {
   var seuil = +document.getElementById('comparSeuil').value;
+  var choix = document.getElementById('comparPiste').value; // un vol « pas vu » n'a pas de piste : il ne compte que dans « Non déterminée »
+  var vols = choix ? tous.filter(function (v) { return pisteDe(v) === choix; }) : tous;
   var z = document.getElementById('comparStats');
   z.textContent = '';
-  z.appendChild(deuxColonnes(colonne('Départs', blocStats('DEP', p, seuil, vols)), colonne('Arrivées', blocStats('ARR', p, seuil, vols))));
+  z.appendChild(deuxColonnes(colonne('Départs', blocStats('DEP', p, seuil, vols, choix)), colonne('Arrivées', blocStats('ARR', p, seuil, vols, choix))));
   z.appendChild(h('div', { class: 'note', text: "Écart = heure réelle vue par le radar moins heure prévue. Un vol « pas vu » peut être annulé, ou simplement absent des données. Pour un départ, le radar voit le décollage, quelques minutes après l'heure prévue de départ : les départs paraissent donc un peu en retard." }));
   var c = document.getElementById('comparContenu');
   c.textContent = '';
   var vus = vols.filter(function (v) { return v.resultat !== 'non_observe'; });
   var dep = vus.filter(function (v) { return v.sens === 'DEP'; }).length;
   var compares = vus.filter(function (v) { return v.resultat === 'observe'; }).length;
-  document.getElementById('comparInfo').textContent = 'Du ' + francais(p.du) + ' au ' + francais(p.au) + ' : ' + vus.length + ' vols vus par le radar (' + dep + ' départs, ' + (vus.length - dep) + ' arrivées), dont ' + compares + ' comparés à un horaire prévu.';
+  document.getElementById('comparInfo').textContent = 'Du ' + francais(p.du) + ' au ' + francais(p.au) + ' : ' + vus.length + ' vols vus par le radar (' + dep + ' départs, ' + (vus.length - dep) + ' arrivées), dont ' + compares + ' comparés à un horaire prévu' + (choix ? (choix === '?' ? ', piste non déterminée' : ', piste ' + choix) : '') + '.';
+  if (!vols.length) message('compar', choix ? 'Aucun vol sur cette période avec cette piste.' : 'Aucun vol sur cette période.');
   parJour(vols).forEach(function (j) {
     var ulD = h('ul', { class: 'vols' }), ulA = h('ul', { class: 'vols' });
     j.vols.forEach(function (v) { (v.sens === 'DEP' ? ulD : ulA).appendChild(ligneCompar(v, seuil)); });
@@ -552,6 +585,10 @@ function comparAfficher(vols, p) {
     ]));
   });
 }
+
+document.getElementById('histoPiste').addEventListener('change', function () {
+  if (vue.histoVols) histoAfficher(vue.histoVols, vue.histoP);
+});
 
 function basculeSimple(id, action) {
   document.getElementById(id).addEventListener('click', function (e) {
@@ -582,6 +619,9 @@ basculeSimple('raccourcis', function (v) {
 document.getElementById('du').addEventListener('change', actualiser);
 document.getElementById('au').addEventListener('change', actualiser);
 document.getElementById('comparSeuil').addEventListener('change', actualiser);
+document.getElementById('comparPiste').addEventListener('change', function () {
+  if (vue.comparVols) comparAfficher(vue.comparVols, vue.comparP);
+});
 document.getElementById('filtre').addEventListener('input', afficher);
 document.getElementById('seulReel').addEventListener('change', afficher);
 charger();
