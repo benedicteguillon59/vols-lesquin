@@ -204,6 +204,9 @@ footer a { color: var(--bleu); }
 var URL_SOURCE = 'https://www.lille.aeroport.fr/infos-vols-et-compagnies/arrivees-departs/';
 var IDS = { departs: { jour: 'depart-jour', demain: 'depart-demain' },
             arrivees: { jour: 'arrivees-jour', demain: 'arrivees-demain' } };
+// Sur téléphone, le site de l'aéroport redirige vers une page « mobile » aux identifiants différents (mêmes colonnes, sans logo).
+var IDS_MOBILE = { departs: { jour: 'today-departures', demain: 'tomorrow-departures' },
+                   arrivees: { jour: 'today-arrivals', demain: 'tomorrow-arrivals' } };
 var HISTORIQUE_URL = 'https://script.google.com/macros/s/AKfycbw7h7-X0FRYKzii1GQJLdyMUfGy0b9kbcNXQg-ZfJekMMGUoXl1uF4PxJIYSeCAqEIQ/exec'; // adresse de l'application Web Apps Script (finit par /exec) ; vide = historique indisponible
 var etat = { sens: 'departs', jour: 'jour', donnees: null, heure: null };
 
@@ -221,10 +224,11 @@ function lire(doc) {
   Object.keys(IDS).forEach(function (sens) {
     res[sens] = {};
     Object.keys(IDS[sens]).forEach(function (jour) {
-      var zone = doc.getElementById(IDS[sens][jour]);
+      var zone = doc.getElementById(IDS[sens][jour]) || doc.getElementById(IDS_MOBILE[sens][jour]);
       var vols = [];
       var tit = doc.getElementById('titre-date-' + (sens === 'departs' ? 'depart' : 'arrivees') + '-' + jour);
-      var dm = tit && tit.textContent.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      var texteDate = tit ? tit.textContent : (doc.querySelector('#display-date[data-today]') ? doc.getElementById('display-date').getAttribute('data-' + (jour === 'jour' ? 'today' : 'tomorrow')) : '');
+      var dm = texteDate.match(/(\d{2})\/(\d{2})\/(\d{4})/);
       var date = dm ? dm[3] + '-' + dm[2] + '-' + dm[1] : '';
       if (zone) zone.querySelectorAll('tr').forEach(function (tr) {
         var td = tr.querySelectorAll('td');
