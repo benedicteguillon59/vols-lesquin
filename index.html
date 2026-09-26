@@ -291,7 +291,7 @@ function histoAfficher() {
     var pastille;
     if (v.resultat === 'observe') {
       var e = v.ecart;
-      pastille = h('span', { class: 'ecart' + (e > 5 ? ' retard' : ''), text: e === 0 ? 'À l'heure' : (e > 0 ? '+' : '') + e + ' min' });
+      pastille = h('span', { class: 'ecart' + (e > 5 ? ' retard' : ''), text: e === 0 ? "À l'heure" : (e > 0 ? '+' : '') + e + ' min' });
     } else if (v.resultat === 'non_observe') {
       pastille = h('span', { class: 'ecart non', text: 'Pas vu dans Aerovision' });
     } else {
