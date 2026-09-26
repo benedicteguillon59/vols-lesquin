@@ -218,6 +218,9 @@ footer a { color: var(--bleu); }
       <div id="comparContenu"></div>
     </div>
     <div id="stats" hidden>
+      <label class="coche" id="statsAnneeZone" hidden>Année
+        <select id="statsAnnee" aria-label="Choisir l'année"></select>
+      </label>
       <label class="coche">Période
         <select id="statsMois" aria-label="Choisir le mois"></select>
       </label>
@@ -424,7 +427,7 @@ function fixerPlage(du, au) {
 }
 
 function ouvrirArchives() {
-  if (vue.sous === 'stats') return statsOuvrir();
+  if (vue.sous === 'stats') return statsOuvrir(vue.recap ? String(vue.recap.annee) : '');
   var sous = vue.sous; // l'onglet peut changer pendant le chargement : les messages vont dans l'onglet d'origine
   if (!HISTORIQUE_URL) return message(sous, "L'historique n'est pas encore branché.");
   if (vue.jours) return actualiser();
@@ -633,20 +636,31 @@ function addition(a) { return a.reduce(function (s, x) { return s + x; }, 0); }
 function tranche(t) { return String(t).replace(/(\d+)-(\d+)h/, '$1 h – $2 h'); }
 function pourcent(n, d) { return d ? (Math.round(1000 * n / d) / 10 + ' %').replace('.', ',') : '—'; }
 
-function statsOuvrir() {
+function statsOuvrir(annee) { // sans année : la plus récente ; les années déjà lues sont gardées en mémoire
   if (!HISTORIQUE_URL) return message('stats', "L'historique n'est pas encore branché.");
-  if (vue.recap) return statsAfficher();
+  vue.recapCache = vue.recapCache || {};
+  var cle = annee || '';
+  if (vue.recapCache[cle]) return statsMontrer(vue.recapCache[cle]);
   message('stats', ATTENTE);
-  appel('vue=recap').then(function (d) {
+  appel('vue=recap' + (annee ? '&annee=' + annee : '')).then(function (d) {
     if (d.erreur) throw new Error(d.erreur);
-    vue.recap = d;
-    vue.recapMois = d.mois.filter(function (m) { return m.ARR.o + m.DEP.o > 0; });
-    var sel = document.getElementById('statsMois');
-    sel.textContent = '';
-    sel.appendChild(h('option', { value: '', text: 'Tous les mois' }));
-    vue.recapMois.forEach(function (m, i) { sel.appendChild(h('option', { value: String(i), text: moisLong(m.nom) })); });
-    statsAfficher();
-  }).catch(function () { message('stats', "Impossible de lire les statistiques pour le moment. La feuille « Recap 2026 » existe-t-elle ? (lancer creerRecap)"); });
+    vue.recapCache[cle] = d; vue.recapCache[String(d.annee)] = d;
+    statsMontrer(d);
+  }).catch(function () { message('stats', "Impossible de lire les statistiques pour le moment. La feuille « Recap » de l'année existe-t-elle ? (lancer creerRecap)"); });
+}
+function statsMontrer(d) {
+  vue.recap = d;
+  vue.recapMois = d.mois.filter(function (m) { return m.ARR.o + m.DEP.o > 0; });
+  var an = document.getElementById('statsAnnee');
+  an.textContent = '';
+  d.annees.forEach(function (a) { an.appendChild(h('option', { value: String(a), text: String(a) })); });
+  an.value = String(d.annee);
+  document.getElementById('statsAnneeZone').hidden = d.annees.length < 2; // le choix n'apparaît qu'à partir de la deuxième année
+  var sel = document.getElementById('statsMois');
+  sel.textContent = '';
+  sel.appendChild(h('option', { value: '', text: 'Tous les mois' }));
+  vue.recapMois.forEach(function (m, i) { sel.appendChild(h('option', { value: String(i), text: moisLong(m.nom) })); });
+  statsAfficher();
 }
 
 function tableau(titre, entetes, lignes, avecTotal) {
@@ -686,10 +700,10 @@ function colonnes(mois) { // vols de nuit par mois : arrivées et départs empil
 function statsAfficher() {
   var d = vue.recap, mois = vue.recapMois, c = document.getElementById('statsContenu');
   c.textContent = '';
-  if (!mois.length) return message('stats', "Pas encore de chiffres dans la feuille « Recap 2026 ».");
+  if (!mois.length) return message('stats', "Pas encore de chiffres dans la feuille « Recap " + d.annee + " ».");
   var choix = document.getElementById('statsMois').value;
   var sel = choix === '' ? d.total : mois[+choix];
-  var nomPeriode = choix === '' ? 'tous les mois' : moisLong(mois[+choix].nom);
+  var nomPeriode = choix === '' ? 'tous les mois de ' + d.annee : moisLong(mois[+choix].nom) + ' ' + d.annee;
   var ta = sel.ARR.o, td = sel.DEP.o, nuit = sel.ARR.n + sel.DEP.n;
   c.appendChild(h('div', { 'class': 'stats' }, [
     h('div', { 'class': 'stat hero' }, [h('b', { text: String(ta + td) }), h('span', { text: 'vols de nuit (entre 22 h et 6 h), ' + nomPeriode })]),
@@ -697,7 +711,7 @@ function statsAfficher() {
     carte(nuit, 'vols entre minuit et 6 h'), carte(pourcent(nuit, ta + td), 'des vols de nuit ont lieu entre minuit et 6 h')
   ]));
 
-  c.appendChild(h('h3', { 'class': 'sous-titre', text: 'Vols de nuit, mois par mois' }));
+  c.appendChild(h('h3', { 'class': 'sous-titre', text: 'Vols de nuit, mois par mois, ' + d.annee }));
   c.appendChild(legende([['arr', 'Arrivées'], ['dep', 'Départs']]));
   c.appendChild(colonnes(mois));
   var lm = mois.map(function (m) {
@@ -722,7 +736,7 @@ function statsAfficher() {
   c.appendChild(tableau('Par compagnie', ['Compagnie', 'Arrivées', 'Départs', 'Total', 'Part', ''],
     pc.map(function (x) { return [x.nom, x.a, x.d, x.a + x.d, pourcent(x.a + x.d, totalC), barre([[x.a, 'arr'], [x.d, 'dep']], maxC)]; })));
 
-  c.appendChild(h('div', { 'class': 'note', text: "Chiffres de la feuille « Recap 2026 » : juin à août relevés à la main, à partir de septembre calculés automatiquement d'après le radar (heure de Paris). Une arrivée compte à l'atterrissage, un départ au décollage. Les compagnies sont regroupées d'après l'indicatif radar ; « Autres » réunit celles qui ne sont pas listées." }));
+  c.appendChild(h('div', { 'class': 'note', text: "Chiffres de la feuille « Recap " + d.annee + " » : " + (d.annee === 2026 ? "juin à août relevés à la main, à partir de septembre calculés automatiquement" : "calculés automatiquement") + " d'après le radar (heure de Paris). Une arrivée compte à l'atterrissage, un départ au décollage. Les compagnies sont regroupées d'après l'indicatif radar ; « Autres » réunit celles qui ne sont pas listées." }));
 }
 
 function basculeSimple(id, action) {
@@ -747,6 +761,7 @@ basculeSimple('sousVue', function (v) {
   ouvrirArchives();
 });
 document.getElementById('statsMois').addEventListener('change', function () { if (vue.recap) statsAfficher(); });
+document.getElementById('statsAnnee').addEventListener('change', function () { statsOuvrir(this.value); });
 basculeSimple('raccourcis', function (v) {
   if (!vue.jours) return;
   var auj = aujourdhui(), fin = auj > vue.max ? vue.max : auj;
