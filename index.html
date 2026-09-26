@@ -19,6 +19,7 @@
   --alerte: #8a4b00; --alerte-fond: #fff0d1;
   --mal: #a3122a; --mal-fond: #fde3e7;
   --archive: #7a2d6b; --archive-clair: #f6e3f2;
+  --sur-accent: #ffffff; --nuit: #0a3d5f;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -28,13 +29,16 @@
     --alerte: #ffc766; --alerte-fond: #4a3510;
     --mal: #ff9aab; --mal-fond: #4d1a25;
     --archive: #f0a6e0; --archive-clair: #43203d;
+    --sur-accent: #0e1a24; --nuit: #0a2233;
   }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--fond); color: var(--texte);
   font: 18px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-header { background: #0b5a8a; color: #fff; padding: 16px 16px 12px; }
-header h1 { margin: 0; font-size: 1.5rem; }
+header { background: linear-gradient(135deg, #0b5a8a, #0a3d5f); color: #fff; padding: 18px 16px 22px; position: relative; }
+header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 6px; height: 4px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.7) 0 22px, transparent 22px 42px); }
+header h1 { margin: 0; font-size: 1.6rem; letter-spacing: .2px; }
 header p { margin: 4px 0 0; font-size: 1rem; opacity: .95; }
 main { max-width: 1100px; margin: 0 auto; padding: 12px 12px 40px; }
 .groupe { display: flex; gap: 8px; margin: 10px 0; }
@@ -46,14 +50,15 @@ input[type=search] { width: 100%; min-height: 48px; font: inherit; padding: 8px 
   border: 2px solid var(--ligne); border-radius: 12px; background: var(--carte); color: var(--texte); }
 .info { color: var(--doux); font-size: 1rem; margin: 8px 2px; }
 ul.vols { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
-.vol { background: var(--carte); border: 1px solid var(--ligne); border-radius: 12px;
-  padding: 10px 14px; display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; align-items: center; }
-.vol.passe { opacity: .62; }
-.heure { grid-row: span 2; font-size: 1.6rem; font-weight: 800; color: var(--bleu);
-  font-variant-numeric: tabular-nums; min-width: 4.2ch; }
+.vol { background: var(--carte); border: 1px solid var(--ligne); border-radius: 14px; box-shadow: 0 1px 2px rgba(10,40,60,.08);
+  padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: center; }
+.vol.passe { border-left: 6px solid var(--ok); }
+.heure { grid-row: span 2; font-size: 1.45rem; font-weight: 800; color: var(--sur-accent); background: var(--bleu);
+  font-variant-numeric: tabular-nums; min-width: 4.6ch; text-align: center; padding: 8px 8px; border-radius: 10px; }
 .ville { font-size: 1.15rem; font-weight: 700; text-transform: capitalize; }
 .detail { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 1rem; color: var(--doux); }
 .detail img { height: 26px; width: auto; max-width: 70px; background: #fff; border-radius: 4px; padding: 1px 3px; }
+.cie { display: inline-flex; align-items: center; gap: 8px; }
 .etat { font-weight: 700; font-size: 1rem; padding: 2px 10px; border-radius: 999px;
   background: var(--bleu-clair); color: var(--bleu); }
 .etat.ok { background: var(--ok-fond); color: var(--ok); }
@@ -66,7 +71,7 @@ ul.vols { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8p
 .coche { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 8px; }
 .coche input { width: 26px; height: 26px; }
 h2.date { font-size: 1.1rem; margin: 14px 2px 0; color: var(--doux); }
-.heure.inconnue { opacity: .55; }
+.heure.inconnue { background: transparent; color: var(--bleu); border: 2px dashed var(--bleu); padding: 6px 6px; }
 .ecart { font-weight: 700; font-size: 1rem; padding: 2px 10px; border-radius: 999px; background: var(--ok-fond); color: var(--ok); }
 .ecart.retard { background: var(--alerte-fond); color: var(--alerte); }
 .ecart.non { background: var(--mal-fond); color: var(--mal); }
@@ -78,6 +83,10 @@ select { width: 100%; min-height: 48px; font: inherit; padding: 8px 14px; border
 .stat b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; color: var(--archive); }
 .stat.mal b { color: var(--mal); } .stat.ok b { color: var(--ok); } .stat.alerte b { color: var(--alerte); }
 .stat span { font-size: 1rem; color: var(--doux); }
+.stat.hero { grid-column: 1 / -1; padding: 14px 16px; }
+.stat.hero b { font-size: 2.4rem; line-height: 1.1; }
+.barre { height: 12px; border-radius: 999px; background: var(--ligne); margin: 8px 0 6px; overflow: hidden; }
+.barre i { display: block; height: 100%; background: var(--alerte); border-radius: 999px; }
 .ref { font-size: .95rem; color: var(--doux); word-break: break-all; }
 .note { font-size: 1rem; color: var(--doux); margin: 8px 2px; }
 .onglets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 14px; }
@@ -87,14 +96,15 @@ select { width: 100%; min-height: 48px; font: inherit; padding: 8px 14px; border
 .onglets button span { font-size: 1rem; color: var(--doux); }
 .onglets button[data-v=direct][aria-pressed=true] { border-color: var(--bleu); background: var(--bleu-clair); }
 .onglets button[data-v=archives][aria-pressed=true] { border-color: var(--archive); background: var(--archive-clair); }
-.pave { border: 3px solid var(--bleu); border-radius: 18px; padding: 12px 14px 18px; background: var(--fond); }
+.pave { border: 3px solid var(--bleu); border-radius: 20px; padding: 14px 14px 20px; background: var(--fond); }
 .pave > h2 { margin: 0 0 8px; font-size: 1.25rem; color: var(--bleu); }
 .pave-direct { max-width: 820px; margin: 0 auto; }
 .pave-archives { border-color: var(--archive); }
 .pave-archives > h2 { color: var(--archive); }
 .pave-archives .groupe button { border-color: var(--archive); color: var(--archive); }
 .pave-archives .groupe button[aria-pressed="true"] { background: var(--archive); color: var(--fond); }
-.pave-archives .heure { color: var(--archive); }
+.pave-archives .heure { background: var(--archive); color: var(--sur-accent); }
+.pave-archives .heure.inconnue { background: transparent; color: var(--archive); border-color: var(--archive); }
 .periode { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
 .periode label { display: grid; gap: 2px; font-weight: 700; flex: 1 1 150px; }
 input[type=date] { min-height: 48px; font: inherit; padding: 8px 12px; border: 2px solid var(--ligne); border-radius: 12px;
@@ -103,7 +113,7 @@ input[type=date] { min-height: 48px; font: inherit; padding: 8px 12px; border: 2
 @media (max-width: 760px) { .deux { grid-template-columns: 1fr; } }
 .deux h3 { margin: 10px 2px 0; font-size: 1.15rem; color: var(--archive); }
 .jourbloc { margin-top: 18px; }
-.jourbloc > h2.date { border-bottom: 2px solid var(--ligne); padding-bottom: 4px; }
+.jourbloc > h2.date { display: inline-block; background: var(--archive-clair); color: var(--archive); padding: 4px 14px; border-radius: 999px; font-size: 1.05rem; }
 footer { color: var(--doux); font-size: 1rem; margin-top: 24px; }
 footer a { color: var(--bleu); }
 </style>
@@ -283,8 +293,10 @@ function afficher() {
   vols.forEach(function (v) {
     var passe = !!v.reel;
     var det = [];
-    if (v.logo) det.push(h('img', { src: v.logo, alt: '', loading: 'lazy' }));
-    det.push(h('span', { text: v.compagnie + ' · vol ' + v.numero }));
+    var cie = [];
+    if (v.logo) cie.push(h('img', { src: v.logo, alt: '', loading: 'lazy' }));
+    cie.push(h('span', { text: v.compagnie + ' · vol ' + v.numero }));
+    det.push(h('span', { class: 'cie' }, cie));
     det.push(h('span', { text: v.reel ? 'Heure réelle (prévu : ' + v.heure + ')' : 'Heure réelle pas encore connue (prévu : ' + v.heure + ')' }));
     if (v.statut) det.push(h('span', { class: 'etat ' + classeStatut(v.statut), text: v.statut }));
     ul.appendChild(h('li', { class: 'vol' + (passe ? ' passe' : '') }, [
@@ -368,7 +380,7 @@ function deuxColonnes(gauche, droite) {
   return h('div', { class: 'deux' }, [gauche, droite]);
 }
 function colonne(titre, liste) {
-  var enfants = [h('h3', { text: titre })];
+  var enfants = [h('h3', { text: (titre.indexOf('Départs') === 0 ? '↗ ' : '↘ ') + titre })];
   enfants.push(liste);
   return h('div', {}, enfants);
 }
@@ -452,12 +464,18 @@ function blocStats(sens, p, seuil, vols) {
   var avance = b.ecarts.filter(function (e) { return e <= -seuil; }).length;
   var pc = function (n, d) { return d ? Math.round(1000 * n / d) / 10 + ' %' : '—'; };
   var moy = b.ecarts.length ? Math.round(b.ecarts.reduce(function (s, e) { return s + e; }, 0) / b.ecarts.length * 10) / 10 : null;
+  var ratio = b.observes ? Math.round(100 * retards / b.observes) : 0;
+  var vedette = h('div', { class: 'stat hero ' + (retards ? 'alerte' : 'ok') }, [
+    h('b', { text: pc(retards, b.observes) }),
+    h('div', { class: 'barre' }, [h('i', { style: 'width:' + ratio + '%' })]),
+    h('span', { text: 'de retards de ' + seuil + ' min ou plus parmi les vols comparés (' + retards + ' sur ' + b.observes + ')' })
+  ]);
   return h('div', { class: 'stats' }, [
+    vedette,
     carte(vusTotal, 'vols vus par le radar sur toute la période'),
     carte(b.prevus, 'vols prévus, dans les jours où les horaires sont enregistrés'),
     carte(b.observes, 'vus par le radar (' + pc(b.observes, b.prevus) + ')'),
     carte(retards, 'en retard de ' + seuil + ' min ou plus', retards ? 'alerte' : 'ok'),
-    carte(pc(retards, b.observes), 'de retards parmi les vols vus', retards ? 'alerte' : 'ok'),
     carte(avance, 'en avance de ' + seuil + ' min ou plus'),
     carte(moy === null ? '—' : signe(moy) + ' min', 'écart moyen'),
     carte(b.ecarts.length ? signe(mediane(b.ecarts)) + ' min' : '—', 'écart médian'),
