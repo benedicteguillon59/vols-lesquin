@@ -127,6 +127,14 @@ input[type=date] { min-height: 48px; font: inherit; padding: 8px 12px; border: 2
 .jourbloc { margin-top: 18px; }
 .jourbloc > h2.date { display: inline-block; background: var(--archive-clair); color: var(--archive); padding: 4px 14px; border-radius: 999px; font-size: 1.05rem; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--soleil); outline-offset: 2px; box-shadow: 0 0 0 5px var(--bleu); }
+.groupe.compact { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 8px; }
+.groupe.compact button { min-height: 44px; padding: 4px 8px; font-size: 1rem; line-height: 1.15; }
+#raccourcis.compact { display: flex; flex-wrap: wrap; }
+#raccourcis.compact button { flex: 1 1 auto; white-space: nowrap; }
+@media (max-width: 520px) {
+  #sousVue.compact { grid-template-columns: 1fr 1fr; }
+  #sousVue.compact button:last-child { grid-column: 1 / -1; }
+}
 .tableau { overflow-x: auto; margin: 8px 0 18px; border: 1px solid var(--ligne); border-radius: 12px; background: var(--carte); }
 .tableau table { border-collapse: collapse; width: 100%; font-size: 1rem; }
 .tableau caption { text-align: left; font-family: var(--titre); font-weight: 600; font-size: 1.1rem; color: var(--archive); padding: 10px 12px; }
@@ -172,7 +180,7 @@ footer a { color: var(--bleu); }
 
   <section id="archives" class="pave pave-archives" hidden aria-label="Historique et comparaison">
     <h2>Ce qui s'est vraiment passé</h2>
-    <div class="groupe" id="sousVue" role="group" aria-label="Historique, comparaison ou statistiques mensuelles">
+    <div class="groupe compact" id="sousVue" role="group" aria-label="Historique, comparaison ou statistiques mensuelles">
       <button data-v="histo" aria-pressed="true">Historique</button>
       <button data-v="compar" aria-pressed="false">Comparaison</button>
       <button data-v="stats" aria-pressed="false">Statistiques mensuelles</button>
@@ -181,7 +189,7 @@ footer a { color: var(--bleu); }
       <label>Du <input type="date" id="du"></label>
       <label>Au <input type="date" id="au"></label>
     </div>
-    <div class="groupe petit" id="raccourcis" role="group" aria-label="Périodes rapides">
+    <div class="groupe petit compact" id="raccourcis" role="group" aria-label="Périodes rapides">
       <button data-v="auj" aria-pressed="false">Aujourd'hui</button>
       <button data-v="hier" aria-pressed="false">Hier</button>
       <button data-v="sept" aria-pressed="false">7 jours</button>
