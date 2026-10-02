@@ -428,6 +428,10 @@ function plage() {
   if (du && au && du > au) { var x = du; du = au; au = x; document.getElementById('du').value = du; document.getElementById('au').value = au; }
   return { du: du, au: au };
 }
+function plageActuelle(p) { // une réponse arrivée en retard pour une autre période ne doit pas remplacer l'affichage de la période choisie
+  var q = plage();
+  return q.du === p.du && q.au === p.au;
+}
 function fixerPlage(du, au) {
   document.getElementById('du').value = du < vue.min ? vue.min : du;
   document.getElementById('au').value = au > vue.max ? vue.max : au;
@@ -497,7 +501,7 @@ function histoChoisir(p) {
   message('histo', ATTENTE);
   document.getElementById('histoInfo').textContent = '';
   (vue.reel[cle] ? Promise.resolve(vue.reel[cle]) : appel('vue=reel&debut=' + p.du + '&fin=' + p.au).then(function (d) { return vue.reel[cle] = d.vols; }))
-    .then(function (vols) { vue.histoVols = vols; vue.histoP = p; if (vue.sous === 'histo') histoAfficher(vols, p); })
+    .then(function (vols) { if (!plageActuelle(p)) return; vue.histoVols = vols; vue.histoP = p; if (vue.sous === 'histo') histoAfficher(vols, p); })
     .catch(function () { message('histo', 'Impossible de lire cette période.'); });
 }
 function textePiste(p) { // « 26 » ; « 20? » = incertaine ; « - » = pas déterminée ; vide = pas encore calculée
@@ -550,7 +554,7 @@ function comparChoisir(p) {
   Promise.all([
     vue.compar[cle] ? Promise.resolve(vue.compar[cle]) : appel('debut=' + p.du + '&fin=' + p.au).then(function (d) { return vue.compar[cle] = d.vols; }),
     vue.stats ? Promise.resolve(vue.stats) : appel('vue=stats').then(function (d) { return vue.stats = d.jours; })
-  ]).then(function (r) { vue.comparVols = r[0]; vue.comparP = p; if (vue.sous === 'compar') comparAfficher(r[0], p); })
+  ]).then(function (r) { if (!plageActuelle(p)) return; vue.comparVols = r[0]; vue.comparP = p; if (vue.sous === 'compar') comparAfficher(r[0], p); })
     .catch(function () { message('compar', 'Impossible de lire la comparaison.'); });
 }
 function mediane(a) {
@@ -583,7 +587,7 @@ function blocStats(sens, p, seuil, vols, filtre) {
     h('div', { class: 'vide', text: "Pas d'horaires prévus enregistrés sur cette période : la comparaison commence le 26/09/2026." })]);
   var retards = b.ecarts.filter(function (e) { return e >= seuil; }).length;
   var avance = b.ecarts.filter(function (e) { return e <= -seuil; }).length;
-  var pc = function (n, d) { return d ? Math.round(1000 * n / d) / 10 + ' %' : '—'; };
+  var pc = function (n, d) { return d ? (Math.round(1000 * n / d) / 10 + ' %').replace('.', ',') : '—'; };
   var moy = b.ecarts.length ? Math.round(b.ecarts.reduce(function (s, e) { return s + e; }, 0) / b.ecarts.length * 10) / 10 : null;
   var ratio = b.observes ? Math.round(100 * retards / b.observes) : 0;
   var vedette = h('div', { class: 'stat hero ' + (retards ? 'alerte' : 'ok') }, [
@@ -593,16 +597,16 @@ function blocStats(sens, p, seuil, vols, filtre) {
   ]);
   return h('div', { class: 'stats' }, [
     vedette,
-    carte(vusTotal, 'vols vus par le radar sur toute la période'),
+    carte(vusTotal, 'vols vus par le radar au total, prévus ou non'),
     carte(b.prevus, 'vols prévus, dans les jours où les horaires sont enregistrés'),
-    carte(b.observes, 'vus par le radar (' + pc(b.observes, b.prevus) + ')'),
+    carte(b.observes, 'vols prévus vus par le radar (' + pc(b.observes, b.prevus) + ' des vols prévus)'),
     carte(retards, 'en retard de ' + seuil + ' min ou plus', retards ? 'alerte' : 'ok'),
     carte(avance, 'en avance de ' + seuil + ' min ou plus'),
     carte(moy === null ? '—' : signe(moy) + ' min', 'écart moyen'),
     carte(b.ecarts.length ? signe(mediane(b.ecarts)) + ' min' : '—', 'écart médian'),
     carte(b.ecarts.length ? signe(Math.max.apply(null, b.ecarts)) + ' min' : '—', 'plus gros retard'),
     carte(b.nonObserves, 'prévus mais pas vus', b.nonObserves ? 'mal' : ''),
-    carte(b.nonPrevus, 'vus mais pas prévus'),
+    carte(b.nonPrevus, 'vols vus par le radar mais pas prévus'),
     carte(nuitNonPrevus, 'vols de nuit (0 h – 6 h) non prévus', nuitNonPrevus ? 'alerte' : '')
   ]);
 }
