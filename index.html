@@ -180,10 +180,10 @@ footer a { color: var(--bleu); }
 
   <section id="archives" class="pave pave-archives" hidden aria-label="Historique et comparaison">
     <h2>Ce qui s'est vraiment passé</h2>
-    <div class="groupe compact" id="sousVue" role="group" aria-label="Historique, comparaison ou statistiques mensuelles">
-      <button data-v="histo" aria-pressed="true">Historique</button>
-      <button data-v="compar" aria-pressed="false">Comparaison</button>
-      <button data-v="stats" aria-pressed="false">Statistiques mensuelles</button>
+    <div class="groupe compact" id="sousVue" role="group" aria-label="Vols constatés, comparaison vols prévus et vols réels, ou statistiques vols de nuit">
+      <button data-v="histo" aria-pressed="true">Vols constatés</button>
+      <button data-v="compar" aria-pressed="false">Comparaison vols prévus/vols réels</button>
+      <button data-v="stats" aria-pressed="false">Statistiques vols de nuit</button>
     </div>
     <div class="periode" id="periode">
       <label>Du <input type="date" id="du"></label>
@@ -193,7 +193,7 @@ footer a { color: var(--bleu); }
       <button data-v="auj" aria-pressed="false">Aujourd'hui</button>
       <button data-v="hier" aria-pressed="false">Hier</button>
       <button data-v="sept" aria-pressed="false">7 jours</button>
-      <button data-v="tout" aria-pressed="false">Tout</button>
+      <button data-v="tout" aria-pressed="false">62 jours</button>
     </div>
     <div id="histo">
       <label class="coche">Piste
@@ -407,7 +407,7 @@ function nomCompagnie(v) { // le début de l'indicatif dit souvent mieux qui vol
   return COMPAGNIES[p] || COMPAGNIES[v.compagnie] || v.compagnie || 'Compagnie non renseignée';
 }
 
-var vue = { jours: null, min: '', max: '', sous: 'histo', reel: {}, compar: {}, stats: null };
+var vue = { jours: null, jourConnu: null, min: '', max: '', sous: 'histo', reel: {}, compar: {}, stats: null, auto: 'tout' };
 var MAX_JOURS = 62;
 function appel(param) {
   return fetch(HISTORIQUE_URL + '?' + param).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
@@ -434,20 +434,35 @@ function fixerPlage(du, au) {
   actualiser();
 }
 
+function appliquerRaccourci(v) { // relatif à aujourd'hui : refait au besoin quand un autre jour a commencé
+  var auj = aujourdhui(), fin = auj > vue.max ? vue.max : auj;
+  if (v === 'auj') fixerPlage(fin, fin);
+  else if (v === 'hier') fixerPlage(decaler(fin, -1), decaler(fin, -1));
+  else if (v === 'sept') fixerPlage(decaler(fin, -6), fin);
+  else { // 'tout' : toute l'historique, mais jamais plus de MAX_JOURS (sinon l'aéroport ayant plus de 62 jours d'historique, ce bouton ne montrerait plus jamais rien)
+    var plusAncien = decaler(fin, -(MAX_JOURS - 1));
+    fixerPlage(plusAncien > vue.min ? plusAncien : vue.min, fin);
+  }
+  document.querySelectorAll('#raccourcis button').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.v === v); });
+}
+
 function ouvrirArchives() {
   if (vue.sous === 'stats') return statsOuvrir(vue.recap ? String(vue.recap.annee) : '');
   var sous = vue.sous; // l'onglet peut changer pendant le chargement : les messages vont dans l'onglet d'origine
   if (!HISTORIQUE_URL) return message(sous, "L'historique n'est pas encore branché.");
-  if (vue.jours) return actualiser();
+  var auj = aujourdhui();
+  if (vue.jours && vue.jourConnu === auj) return actualiser(); // déjà à jour pour aujourd'hui
+  var premier = !vue.jours;
+  // un autre jour a commencé depuis le dernier chargement (page restée ouverte) : on ne garde pas d'anciennes données en mémoire
+  vue.stats = null; vue.compar = {}; vue.reel = {};
   message(sous, ATTENTE);
   appel('').then(function (d) {
-    vue.jours = d.jours;
+    vue.jours = d.jours; vue.jourConnu = auj;
     if (!d.jours.length) return message(sous, "Pas encore de données : l'historique se remplit chaque jour.");
     vue.min = d.jours[d.jours.length - 1]; vue.max = d.jours[0];
     ['du', 'au'].forEach(function (id) { var e = document.getElementById(id); e.min = vue.min; e.max = vue.max; });
-    var auj = aujourdhui(), dernier = d.jours.filter(function (j) { return j <= auj; })[0] || vue.max;
-    fixerPlage(vue.min, dernier); // par défaut : tout l'historique
-    document.querySelectorAll('#raccourcis button').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.v === 'tout'); });
+    if (premier) vue.auto = 'tout'; // par défaut : les 62 derniers jours
+    if (vue.auto) appliquerRaccourci(vue.auto); else actualiser(); // une période choisie à la main est gardée, avec des données à jour
   }).catch(function () { message(sous, "Impossible de lire l'historique pour le moment."); });
 }
 
@@ -546,6 +561,7 @@ function signe(n) { return (n > 0 ? '+' : '') + n; }
 function carte(valeur, libelle, classe) {
   return h('div', { class: 'stat' + (classe ? ' ' + classe : '') }, [h('b', { text: valeur }), h('span', { text: libelle })]);
 }
+function estNuit(heure) { return +String(heure).slice(0, 2) < 6; } // vols de nuit : de 0 h à 6 h
 function blocStats(sens, p, seuil, vols, filtre) {
   var b = { prevus: 0, observes: 0, nonObserves: 0, nonPrevus: 0, ecarts: [] };
   if (filtre) { // le bilan par jour ne connaît pas la piste : on recompte les vols affichés
@@ -560,6 +576,7 @@ function blocStats(sens, p, seuil, vols, filtre) {
     b.prevus += x.prevus; b.observes += x.observes; b.nonObserves += x.nonObserves; b.nonPrevus += x.nonPrevus;
     b.ecarts = b.ecarts.concat(x.ecarts);
   });
+  var nuitNonPrevus = vols.filter(function (v) { return v.sens === sens && v.resultat === 'non_prevu' && v.reel && estNuit(v.reel); }).length;
   var vusTotal = vols.filter(function (v) { return v.sens === sens && v.resultat !== 'non_observe'; }).length;
   if (!b.prevus && filtre) return h('div', { class: 'vide', text: 'Aucun vol comparé avec cette piste.' });
   if (!b.prevus) return h('div', { class: 'stats' }, [carte(vusTotal, 'vols vus par le radar sur la période'),
@@ -585,7 +602,8 @@ function blocStats(sens, p, seuil, vols, filtre) {
     carte(b.ecarts.length ? signe(mediane(b.ecarts)) + ' min' : '—', 'écart médian'),
     carte(b.ecarts.length ? signe(Math.max.apply(null, b.ecarts)) + ' min' : '—', 'plus gros retard'),
     carte(b.nonObserves, 'prévus mais pas vus', b.nonObserves ? 'mal' : ''),
-    carte(b.nonPrevus, 'vus mais pas prévus')
+    carte(b.nonPrevus, 'vus mais pas prévus'),
+    carte(nuitNonPrevus, 'vols de nuit (0 h – 6 h) non prévus', nuitNonPrevus ? 'alerte' : '')
   ]);
 }
 function ligneCompar(v, seuil) {
@@ -772,14 +790,11 @@ document.getElementById('statsMois').addEventListener('change', function () { if
 document.getElementById('statsAnnee').addEventListener('change', function () { statsOuvrir(this.value); });
 basculeSimple('raccourcis', function (v) {
   if (!vue.jours) return;
-  var auj = aujourdhui(), fin = auj > vue.max ? vue.max : auj;
-  if (v === 'auj') fixerPlage(fin, fin);
-  if (v === 'hier') fixerPlage(decaler(fin, -1), decaler(fin, -1));
-  if (v === 'sept') fixerPlage(decaler(fin, -6), fin);
-  if (v === 'tout') fixerPlage(vue.min, fin);
+  vue.auto = v; // suit « aujourd'hui » : se redécale tout seul si la page reste ouverte d'un jour sur l'autre
+  appliquerRaccourci(v);
 });
-document.getElementById('du').addEventListener('change', actualiser);
-document.getElementById('au').addEventListener('change', actualiser);
+document.getElementById('du').addEventListener('change', function () { vue.auto = null; actualiser(); });
+document.getElementById('au').addEventListener('change', function () { vue.auto = null; actualiser(); });
 document.getElementById('comparSeuil').addEventListener('change', actualiser);
 document.getElementById('comparPiste').addEventListener('change', function () {
   if (vue.comparVols) comparAfficher(vue.comparVols, vue.comparP);
