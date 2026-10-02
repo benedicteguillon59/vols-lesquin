@@ -557,10 +557,6 @@ function comparChoisir(p) {
   ]).then(function (r) { if (!plageActuelle(p)) return; vue.comparVols = r[0]; vue.comparP = p; if (vue.sous === 'compar') comparAfficher(r[0], p); })
     .catch(function () { message('compar', 'Impossible de lire la comparaison.'); });
 }
-function mediane(a) {
-  var s = a.slice().sort(function (x, y) { return x - y; }), m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
 function signe(n) { return (n > 0 ? '+' : '') + n; }
 function carte(valeur, libelle, classe) {
   return h('div', { class: 'stat' + (classe ? ' ' + classe : '') }, [h('b', { text: valeur }), h('span', { text: libelle })]);
@@ -580,6 +576,7 @@ function blocStats(sens, p, seuil, vols, filtre) {
     b.prevus += x.prevus; b.observes += x.observes; b.nonObserves += x.nonObserves; b.nonPrevus += x.nonPrevus;
     b.ecarts = b.ecarts.concat(x.ecarts);
   });
+  var nuitTotal = vols.filter(function (v) { return v.sens === sens && v.resultat !== 'non_observe' && v.reel && estNuit(v.reel); }).length;
   var nuitNonPrevus = vols.filter(function (v) { return v.sens === sens && v.resultat === 'non_prevu' && v.reel && estNuit(v.reel); }).length;
   var vusTotal = vols.filter(function (v) { return v.sens === sens && v.resultat !== 'non_observe'; }).length;
   if (!b.prevus && filtre) return h('div', { class: 'vide', text: 'Aucun vol comparé avec cette piste.' });
@@ -598,15 +595,15 @@ function blocStats(sens, p, seuil, vols, filtre) {
   return h('div', { class: 'stats' }, [
     vedette,
     carte(vusTotal, 'vols vus par le radar au total, prévus ou non'),
-    carte(b.prevus, 'vols prévus, dans les jours où les horaires sont enregistrés'),
+    carte(b.prevus, 'vols prévus'),
+    carte(b.nonPrevus, 'vols vus par le radar mais pas prévus'),
     carte(b.observes, 'vols prévus vus par le radar (' + pc(b.observes, b.prevus) + ' des vols prévus)'),
     carte(retards, 'en retard de ' + seuil + ' min ou plus', retards ? 'alerte' : 'ok'),
     carte(avance, 'en avance de ' + seuil + ' min ou plus'),
-    carte(moy === null ? '—' : signe(moy) + ' min', 'écart moyen'),
-    carte(b.ecarts.length ? signe(mediane(b.ecarts)) + ' min' : '—', 'écart médian'),
+    carte(moy === null ? '—' : signe(moy) + ' min', sens === 'DEP' ? 'écart moyen au départ' : "écart moyen à l'arrivée"),
     carte(b.ecarts.length ? signe(Math.max.apply(null, b.ecarts)) + ' min' : '—', 'plus gros retard'),
     carte(b.nonObserves, 'prévus mais pas vus', b.nonObserves ? 'mal' : ''),
-    carte(b.nonPrevus, 'vols vus par le radar mais pas prévus'),
+    carte(nuitTotal, 'vols de nuit (0 h – 6 h) vus par le radar'),
     carte(nuitNonPrevus, 'vols de nuit (0 h – 6 h) non prévus', nuitNonPrevus ? 'alerte' : '')
   ]);
 }
