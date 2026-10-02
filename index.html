@@ -804,6 +804,7 @@ document.getElementById('filtre').addEventListener('input', afficher);
 document.getElementById('seulReel').addEventListener('change', afficher);
 charger();
 setInterval(charger, 60000);
+if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); }); // nécessaire à l'installation sur Android
 </script>
 </body>
 </html>

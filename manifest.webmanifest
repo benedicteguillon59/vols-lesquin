@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "Vols à Lille-Lesquin",
   "short_name": "Vols Lesquin",
   "description": "Départs et arrivées de l'aéroport de Lille-Lesquin, avec l'historique des vols réels.",
@@ -9,7 +10,29 @@
   "background_color": "#0b5a8a",
   "theme_color": "#0b5a8a",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
